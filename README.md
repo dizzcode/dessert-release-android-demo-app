@@ -42,9 +42,20 @@ The Dessert Release app is a simple app which displays a collection of Android d
 ### ⭓ Features
 
 
-1. Add Items
-    - Users can add new inventory items to the local database.
-    - The form may include fields like item name, quantity, price, description, etc.
+1. View Dessert Collection: Users can browse a collection of dessert releases.
+
+
+2.  Switch Layout: Users can toggle between grid and list views to customize how the desserts are displayed.
+
+
+3.  Save Layout Preference: The app remembers the user's preferred layout (grid or list) for future sessions.
+
+
+4. Responsive Design: UI adapts seamlessly to different screen sizes and orientations.
+
+
+5.  Smooth Transitions: Visual effects when switching between views (grid/list).
+
 
 
 ##
@@ -208,7 +219,17 @@ The Dessert Release app is a simple app which displays a collection of Android d
 #
 ### ⭓ Features
 
-1. DataStore &nbsp;|&nbsp;  [ More-> ](#1-datastore)  
+1. Jetpack DataStore &nbsp;|&nbsp;  [ More-> ](#1-jetpack-datastore)  
+
+    1.1 How to add DataStore library to the app  
+    1.2 Implement the user preferences repository  
+    1.3 Write to the DataStore  
+    1.4 Read from the DataStore  
+    1.5 Exception handling  
+    1.6 Initialize the DataStore  
+    1.7 Use the UserPreferencesRepository  
+    1.8 Store the layout preference  
+    1.9 Read the layout preference  
 
 
 <br>
@@ -228,9 +249,9 @@ The Dessert Release app is a simple app which displays a collection of Android d
 
 ____
 
-## 1. DataStore
+## 1. Jetpack DataStore
 
-<br>  
+Jetpack DataStore is a data storage solution from the Android Jetpack libraries, designed to replace the SharedPreferences API.
 
 #
 ### 1.1 How to add DataStore library to the app
