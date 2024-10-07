@@ -230,6 +230,238 @@ ____
 
 ## 1. DataStore
 
+<br>  
+
+#
+### 1.1 How to add DataStore library to the app
+
+Set up dependencies | inside `build.gradle.kts` (Module :app)
+
+```kotlin
+//DataStore
+implementation("androidx.datastore:datastore-preferences:1.0.0")
+```
+
+<br>  
+
+#
+### 1.2 Implement the user preferences repository
+
+- In the `data` package, create a new class called `UserPreferencesRepository.kt`
+- In the `UserPreferencesRepository` constructor, define a private value property to represent a `DataStore` object instance with a `Preferences` type.
+
+```kotlin
+class UserPreferencesRepository(
+    private val dataStore: DataStore<Preferences>
+){
+}
+```
+
+#
+> [!IMPORTANT]  
+> Make sure to use the `androidx.datastore.preferences.core.Preferences` import for the Preferences class.
+> #
+> DataStore stores key-value pairs. To access a value you must define a key.
+> #
+
+<br>
+
+- Create a `companion object` inside the UserPreferencesRepository class.
+- Use the `booleanPreferencesKey()` function to define a key and pass it the name is_linear_layout. 
+  - Similar to SQL table names, the key needs to use an underscore format. 
+  - This key is used to access a boolean value indicating whether the linear layout should be shown.
+
+```kotlin
+class UserPreferencesRepository(
+    private val dataStore: DataStore<Preferences>
+){
+    private companion object {
+        val IS_LINEAR_LAYOUT = booleanPreferencesKey("is_linear_layout")
+    }
+    // ...
+}
+```
+
+<br>  
+
+#
+### 1.3 Write to the DataStore
+
+- You create and modify the values within a DataStore by passing a lambda to the `edit()` method.
+The lambda is passed an instance of MutablePreferences, which you can use to update values in the DataStore.
+- All the updates inside this lambda are executed as a single transaction.
+  - Put another way, the update is atomic - it happens all at one time. This type of update prevents a situation in which some values update but others do not. 
+
+<br>
+
+- Create a suspend function and call it saveLayoutPreference().
+
+- In the saveLayoutPreference() function, call the edit() method on the dataStore object.
+
+- To make your code more readable, define a name for the MutablePreferences provided in the lambda body. Use that property to set a value with the key you defined and the boolean passed to the saveLayoutPreference() function.
+
+```kotlin
+suspend fun saveLayoutPreference(isLinearLayout: Boolean) {
+    dataStore.edit { preferences ->
+        preferences[IS_LINEAR_LAYOUT] = isLinearLayout
+    }
+}
+```
+
+#
+> [!IMPORTANT]  
+> #
+> The value does not exist in DataStore until this function is called and the value is set.  
+> By setting up the key-value pair in the edit() method,  
+> the value is defined and initialized until the app's cache or data is cleared.
+> #
+
+
+<br>  
+
+#
+### 1.4 Read from the DataStore
+
+Now that you have created a way to write isLinearLayout into dataStore, take the following steps to read it:
+
+- Create a property in UserPreferencesRepository of type Flow<Boolean> called isLinearLayout.
+- You can use the DataStore.data property to expose DataStore values. Set isLinearLayout to the data property of the DataStore object.
+- Use the map function to convert the Flow<Preferences> into a Flow<Boolean>.
+- Specify true to default to the linear layout view.
+- 
+```kotlin
+val isLinearLayout: Flow<Boolean> = dataStore.data.map { preferences ->
+    preferences[IS_LINEAR_LAYOUT] ?: true
+}
+```
+
+#
+> [!NOTE]
+> #
+>  The Preferences object contains all the key-value pairs in the DataStore.  
+> Each time the data in the DataStore is updated, a new Preferences object is emitted into the Flow.
+> #
+> Remember that until the preference is defined and initialized, it does not exist in the DataStore.  
+> That is why you must programmatically confirm that the preference exists and provide a default value if it does not.
+> #
+
+<br>  
+
+#
+### 1.5 Exception handling
+
+File system interactions can fail, such as missing files or full/unmounted disks. DataStore read/write operations may trigger IOExceptions. Use the catch{} operator to handle these failures
+
+- In the companion object, implement an immutable TAG string property to use for logging.
+
+```kotlin
+suspend fun saveLayoutPreference(isLinearLayout: Boolean) {
+    dataStore.edit { preferences ->
+        preferences[IS_LINEAR_LAYOUT] = isLinearLayout
+        const val TAG = "UserPreferencesRepo" //Added
+    }
+}
+```
+
+<br>
+
+- Preferences DataStore throws an IOException when an error is encountered while reading data. In the isLinearLayout initialization block, before map(), use the catch{}operator to catch the IOException.
+
+```kotlin
+val isLinearLayout: Flow<Boolean> = dataStore.data
+    .catch {} //Added
+    .map { preferences ->
+        preferences[IS_LINEAR_LAYOUT] ?: true
+    }
+```
+<br>
+
+- In the catch block, if there is an IOexception, log the error and emit emptyPreferences(). If a different type of exception is thrown, prefer re-throwing that exception. By emitting emptyPreferences() if there is an error, the map function can still map to the default value.
+
+```kotlin
+val isLinearLayout: Flow<Boolean> = dataStore.data
+    .catch { // -------------- Added
+        if(it is IOException) {
+            Log.e(TAG, "Error reading preferences.", it)
+            emit(emptyPreferences())
+        } else {
+            throw it
+        }
+    } // -------------- Added
+    .map { preferences ->
+        preferences[IS_LINEAR_LAYOUT] ?: true
+    }
+```
+[ View Full Code --> ](./app/src/main/java/dizzcode/com/dessertrelease/data/local/UserPreferencesRepository.kt)
+
+<br>  
+
+#
+### 1.6 Initialize the DataStore
+
+In this project, you must handle the dependency injection manually.  
+Therefore, you must manually provide the UserPreferencesRepository class with a Preferences DataStore.  
+Follow these steps to inject DataStore into the UserPreferencesRepository.
+
+- Find the dessertrelease package.
+
+
+- Within this directory, create a new class called DessertReleaseApplication and implement the Application class. This is the container for your DataStore.
+
+```kotlin
+class DessertReleaseApplication: Application() {
+}
+```
+
+- In DessertReleaseApplication.kt, declare a private const val LAYOUT_PREFERENCE_NAME outside the class and set its value to "layout_preferences" for use in the Preferences Datastore.
+
+
+- In DessertReleaseApplication.kt, outside the DessertReleaseApplication class, create a private DataStore<Preferences> property called Context.dataStore using the preferencesDataStore delegate, and pass LAYOUT_PREFERENCE_NAME as the name parameter.
+
+```kotlin
+//Added
+private const val LAYOUT_PREFERENCE_NAME = "layout_preferences"
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
+    name = LAYOUT_PREFERENCE_NAME
+)
+
+class DessertReleaseApplication : Application() {
+}
+```
+
+- Inside the DessertReleaseApplication class body, create a lateinit var instance of the UserPreferencesRepository.
+- Override the onCreate() method.
+- Inside the onCreate() method, initialize userPreferencesRepository by constructing a UserPreferencesRepository with dataStore as its parameter.
+
+
+```kotlin
+private const val LAYOUT_PREFERENCE_NAME = "layout_preferences"
+
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
+    name = LAYOUT_PREFERENCE_NAME
+)
+
+class DessertReleaseApplication : Application() {
+    lateinit var userPreferencesRepository: UserPreferencesRepository
+
+    override fun onCreate() {
+        super.onCreate()
+        userPreferencesRepository = UserPreferencesRepository(dataStore)
+    }
+}
+```
+[ View Full Code --> ](./app/src/main/java/dizzcode/com/dessertrelease/DessertReleaseApplication.kt)
+
+
+- Add the following line inside the <application> tag in the AndroidManifest.xml file.
+
+```xml
+<application
+android:name=".DessertReleaseApplication"
+
+</application>
+```
+
 
 
 
