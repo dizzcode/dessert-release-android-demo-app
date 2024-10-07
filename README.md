@@ -463,8 +463,101 @@ android:name=".DessertReleaseApplication"
 ```
 
 
+<br>  
 
+#
+### 1.7 Use the UserPreferencesRepository
 
+Provide the repository to the ViewModel
+
+- Now that the UserPreferencesRepository is available through dependency injection, you can use it in DessertReleaseViewModel.
+- In the DessertReleaseViewModel, create a UserPreferencesRepository property as a constructor parameter.
+- 
+
+```kotlin
+class DessertReleaseViewModel(
+    private val userPreferencesRepository: UserPreferencesRepository
+) : ViewModel() {
+    // ...
+}
+```
+[ View Full Code --> ](./app/src/main/java/dizzcode/com/dessertrelease/ui/DessertReleaseViewModel.kt)
+
+<br>
+
+- Within the ViewModel's companion object, in the viewModelFactory initializer block, obtain an instance of the DessertReleaseApplication using the following code.
+- Create an instance of the DessertReleaseViewModel and pass the userPreferencesRepository.
+
+```kotlin
+companion object {
+    val Factory: ViewModelProvider.Factory = viewModelFactory {
+        initializer {
+            val application = (this[APPLICATION_KEY] as DessertReleaseApplication)
+            DessertReleaseViewModel(application.userPreferencesRepository)
+        }
+    }
+}
+```
+[ View Full Code --> ](./app/src/main/java/dizzcode/com/dessertrelease/ui/DessertReleaseViewModel.kt)
+
+- The UserPreferencesRepository is now accessible by the ViewModel.
+
+<br>  
+
+#
+### 1.8 Store the layout preference
+
+- Edit selectLayout() in DessertReleaseViewModel to access the preferences repository and update the layout preference. Start a coroutine to call the saveLayoutPreference() function asynchronously.
+
+```kotlin
+fun selectLayout(isLinearLayout: Boolean) {
+    viewModelScope.launch {
+        userPreferencesRepository.saveLayoutPreference(isLinearLayout)
+    }
+}
+```
+[ View Full Code --> ](./app/src/main/java/dizzcode/com/dessertrelease/ui/DessertReleaseViewModel.kt)
+
+<br>  
+
+#
+### 1.9 Read the layout preference
+
+Refactor uiState: StateFlow in the ViewModel to reflect the isLinearLayout: Flow from the repository.
+
+- Delete the uiState initialization with MutableStateFlow(DessertReleaseUiState).
+
+- Use the map() function on the isLinearLayout Flow to convert it into a UI state.
+
+- Return a DessertReleaseUiState instance with the isLinearLayout Boolean to update the UI.
+
+Since isLinearLayout is a cold Flow, convert it to a hot StateFlow using stateIn().   
+Pass viewModelScope, SharingStarted.WhileSubscribed(5_000), and DessertReleaseUiState() as parameters to stateIn().
+
+> Initial Code
+```kotlin
+val uiState: StateFlow<DessertReleaseUiState> = _uiState
+```
+
+<br>
+
+> Modified Code
+```kotlin
+val uiState: StateFlow<DessertReleaseUiState> =
+    userPreferencesRepository.isLinearLayout.map { isLinearLayout ->
+        DessertReleaseUiState(isLinearLayout)
+    }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = DessertReleaseUiState()
+        )
+```
+[ View Full Code --> ](./app/src/main/java/dizzcode/com/dessertrelease/ui/DessertReleaseViewModel.kt)
+
+#
+### Try toggling the layout and closing the app. Reopen the app and notice that your layout preference was saved.
+#
 <br>
 
 #
